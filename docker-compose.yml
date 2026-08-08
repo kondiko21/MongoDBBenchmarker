@@ -1,0 +1,19 @@
+services:
+  mongo1:
+    image: mongo:8.0
+    container_name: mongo1
+    command: mongod --replSet rs0 --bind_ip_all --storage.journal.commitIntervalMs=${MONGO_COMMIT_INTERVAL_MS:-100}
+    ports: ["27017:27017"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  mongo2:
+    image: mongo:8.0
+    container_name: mongo2
+    command: mongod --replSet rs0 --bind_ip_all --storage.journal.commitIntervalMs=${MONGO_COMMIT_INTERVAL_MS:-100}
+    ports: ["27018:27017"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  mongo3:
+    image: mongo:8.0
+    container_name: mongo3
+    command: mongod --replSet rs0 --bind_ip_all --storage.journal.commitIntervalMs=${MONGO_COMMIT_INTERVAL_MS:-100}
+    ports: ["27019:27017"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
