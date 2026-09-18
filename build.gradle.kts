@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation("org.mongodb:mongodb-driver-sync:5.6.0")
+    implementation("org.yaml:snakeyaml:2.4")
     testImplementation(kotlin("test"))
 }
 

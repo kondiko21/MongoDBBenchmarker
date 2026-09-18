@@ -2,18 +2,30 @@ services:
   mongo1:
     image: mongo:8.0
     container_name: mongo1
-    command: mongod --replSet rs0 --bind_ip_all --storage.journal.commitIntervalMs=${MONGO_COMMIT_INTERVAL_MS:-100}
+    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
     ports: ["27017:27017"]
     extra_hosts: ["host.docker.internal:host-gateway"]
   mongo2:
     image: mongo:8.0
     container_name: mongo2
-    command: mongod --replSet rs0 --bind_ip_all --storage.journal.commitIntervalMs=${MONGO_COMMIT_INTERVAL_MS:-100}
+    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
     ports: ["27018:27017"]
     extra_hosts: ["host.docker.internal:host-gateway"]
   mongo3:
     image: mongo:8.0
     container_name: mongo3
-    command: mongod --replSet rs0 --bind_ip_all --storage.journal.commitIntervalMs=${MONGO_COMMIT_INTERVAL_MS:-100}
+    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
     ports: ["27019:27017"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  mongo4:
+    image: mongo:8.0
+    container_name: mongo4
+    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
+    ports: ["27020:27017"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  mongoarbiter:
+    image: mongo:8.0
+    container_name: mongoarbiter
+    command: mongod --replSet rs0 --bind_ip_all
+    ports: ["27021:27017"]
     extra_hosts: ["host.docker.internal:host-gateway"]
