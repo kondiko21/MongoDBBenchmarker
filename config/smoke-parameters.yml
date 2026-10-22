@@ -1,0 +1,12 @@
+topologies: [3]
+
+networkProfiles:
+  - { name: delayed, latencyMs: 20, jitterMs: 5 }
+
+writeConcerns: ["1", majority]
+readConcerns: [local, linearizable]
+readPreferences: [primary, secondary]
+concurrency: [1]
+
+excludedCombinations:
+  - { readPreference: secondary, readConcern: linearizable }

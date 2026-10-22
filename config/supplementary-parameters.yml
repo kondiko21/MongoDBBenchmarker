@@ -1,0 +1,35 @@
+# Main experiment matrix extended with additional MongoDB parameters.
+topologies: [3, 5]
+
+networkProfiles:
+  - { name: local, latencyMs: 0, jitterMs: 0 }
+  - { name: low, latencyMs: 5, jitterMs: 2 }
+  - { name: medium, latencyMs: 20, jitterMs: 10 }
+  - { name: high, latencyMs: 50, jitterMs: 10 }
+
+writeConcerns: ["1", majority]
+readConcerns: [local, majority, linearizable]
+readPreferences: [primary, secondary]
+concurrency: [1, 4, 16]
+
+# -1 means that the parameter is disabled or not applicable.
+maxStalenessSeconds: [-1, 90, 120]
+enableFlowControl: [false, true]
+flowControlTargetLagSeconds: [-1, 1, 10, 30]
+chainingAllowed: [false, true]
+
+excludedCombinations:
+  # Linearizable reads are supported only on primary.
+  - { readPreference: secondary, readConcern: linearizable }
+
+  # maxStalenessSeconds is a read-preference option meaningful only for secondary reads.
+  - { readPreference: primary, maxStalenessSeconds: 90 }
+  - { readPreference: primary, maxStalenessSeconds: 120 }
+
+  # A target lag is required when Flow Control is enabled.
+  - { enableFlowControl: true, flowControlTargetLagSeconds: -1 }
+
+  # A target lag has no effect when Flow Control is disabled. Keep one canonical
+  - { enableFlowControl: false, flowControlTargetLagSeconds: 1 }
+  - { enableFlowControl: false, flowControlTargetLagSeconds: 10 }
+  - { enableFlowControl: false, flowControlTargetLagSeconds: 30 }

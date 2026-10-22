@@ -1,0 +1,26 @@
+parametersFile: config/consistency-parameters.yml
+
+experiment:
+  durationSeconds: 30
+  warmupSeconds: 10
+  repetitions: 3
+  randomizeOrder: true
+  randomSeed: 42
+  suites: [freshness]
+  outputDirectory: results/consistency
+
+dataset:
+  initialDocuments: 75000
+  documentSizeBytes: 4096
+  batchSize: 1000
+  registerCount: 100
+
+workload:
+  readRatio: 0.50
+  insertRatio: 0.25
+  updateRatio: 0.25
+
+mongo:
+  wiredTigerCacheSizeGB: 0.25
+  imageVersion: "8.0"
+  readinessTimeoutSeconds: 120

@@ -47,3 +47,6 @@ bin/
 # Local experiment state and generated measurements
 .env
 results/
+.runtime/
+__pycache__/
+*.pyc

@@ -1,0 +1,26 @@
+parametersFile: config/smoke-parameters.yml
+
+experiment:
+  durationSeconds: 5
+  warmupSeconds: 2
+  repetitions: 1
+  randomizeOrder: false
+  randomSeed: 42
+  suites: [performance, freshness]
+  outputDirectory: results/smoke
+
+dataset:
+  initialDocuments: 1000
+  documentSizeBytes: 2048
+  batchSize: 500
+  registerCount: 20
+
+workload:
+  readRatio: 0.50
+  insertRatio: 0.25
+  updateRatio: 0.25
+
+mongo:
+  wiredTigerCacheSizeGB: 0.25
+  imageVersion: "8.0"
+  readinessTimeoutSeconds: 120

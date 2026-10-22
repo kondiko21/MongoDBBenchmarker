@@ -1,31 +1,68 @@
+name: mongo-consistency-benchmark
+
+x-mongo: &mongo
+  build:
+    context: .
+    dockerfile: docker/mongo-netem.Dockerfile
+  image: mongo-benchmark-netem:8.0
+  command: mongod --replSet rs0 --bind_ip_all --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
+  cap_add: [NET_ADMIN]
+  networks:
+    benchmark:
+
 services:
   mongo1:
-    image: mongo:8.0
+    <<: *mongo
     container_name: mongo1
-    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
     ports: ["27017:27017"]
-    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks:
+      benchmark:
+        ipv4_address: 172.28.0.11
   mongo2:
-    image: mongo:8.0
+    <<: *mongo
     container_name: mongo2
-    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
     ports: ["27018:27017"]
-    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks:
+      benchmark:
+        ipv4_address: 172.28.0.12
   mongo3:
-    image: mongo:8.0
+    <<: *mongo
     container_name: mongo3
-    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
     ports: ["27019:27017"]
-    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks:
+      benchmark:
+        ipv4_address: 172.28.0.13
   mongo4:
-    image: mongo:8.0
+    <<: *mongo
     container_name: mongo4
-    command: mongod --replSet rs0 --bind_ip_all --journalCommitInterval ${MONGO_COMMIT_INTERVAL_MS:-100} --wiredTigerCacheSizeGB ${MONGO_WT_CACHE_GB:-0.25}
+    profiles: [five-nodes]
     ports: ["27020:27017"]
-    extra_hosts: ["host.docker.internal:host-gateway"]
-  mongoarbiter:
-    image: mongo:8.0
-    container_name: mongoarbiter
-    command: mongod --replSet rs0 --bind_ip_all
+    networks:
+      benchmark:
+        ipv4_address: 172.28.0.14
+  mongo5:
+    <<: *mongo
+    container_name: mongo5
+    profiles: [five-nodes]
     ports: ["27021:27017"]
-    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks:
+      benchmark:
+        ipv4_address: 172.28.0.15
+  benchmark:
+    image: eclipse-temurin:17-jre
+    profiles: [worker]
+    working_dir: /work
+    volumes:
+      - ./build/libs/mongo-benchmark-all.jar:/app/benchmark.jar:ro
+      - ./.runtime:/work
+      - ./results:/results
+    networks:
+      benchmark:
+        ipv4_address: 172.28.0.20
+
+networks:
+  benchmark:
+    name: mongo-benchmark-net
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

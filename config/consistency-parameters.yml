@@ -1,0 +1,16 @@
+# Cartesian axes of the freshness/consistency experiment.
+topologies: [3, 5]
+
+networkProfiles:
+  - { name: local, latencyMs: 0, jitterMs: 0 }
+  - { name: low, latencyMs: 5, jitterMs: 2 }
+  - { name: medium, latencyMs: 20, jitterMs: 10 }
+  - { name: high, latencyMs: 50, jitterMs: 10 }
+
+writeConcerns: ["1", majority]
+readConcerns: [local, majority, linearizable]
+readPreferences: [primary, secondary]
+concurrency: [1, 4, 16]
+
+excludedCombinations:
+  - { readPreference: secondary, readConcern: linearizable }

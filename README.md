@@ -1,99 +1,88 @@
-# MongoDB consistency/performance PoC
+# MongoDB CAP/PACELC benchmark
 
-This PoC runs an experiment matrix against a MongoDB 8.0 replica set with four data-bearing
-members and one arbiter. Run settings are defined in
-[config/poc-experiment.yml](config/poc-experiment.yml), while tested MongoDB parameter values are
-defined separately in [config/poc-parameters.yml](config/poc-parameters.yml).
+Orkiestrator służy do badania wpływu ustawień spójności MongoDB na wydajność i świeżość odczytów. Eksperymenty są wykonywane dla topologii Replica Set złożonych z 3 lub 5 węzłów oraz dla wybranych profili opóźnienia i jittera sieci replikacyjnej.
 
-## Topology
+## Badane zmienne
 
-Docker Compose starts five `mongod` processes:
+- topologia replica setu: 3 albo 5 pełnych węzłów;
+- `writeConcern`: `1`, `majority`;
+- `readConcern`: `local`, `majority`, `linearizable`;
+- `readPreference`: `primary`, `secondary`;
+- kontrolowane latency i jitter pomiędzy węzłami przez `tc netem`;
+- współbieżność klienta.
 
-| Service | Host port | Replica set role |
-|---|---:|---|
-| `mongo1` | 27017 | data-bearing member |
-| `mongo2` | 27018 | data-bearing member |
-| `mongo3` | 27019 | data-bearing member |
-| `mongo4` | 27020 | data-bearing member |
-| `mongoarbiter` | 27021 | arbiter |
+## Eksperymenty
 
-The tested topology is therefore `4 replica-set data members + 1 arbiter`. The arbiter participates
-in elections but does not store benchmark data.
+Główny eksperyment `performance` wykonuje w każdym przebiegu kontrolowaną mieszaninę operacji:
 
-## Tested parameters
+- 50% odczytów;
+- 25% insertów;
+- 25% aktualizacji.
 
-The default parameter file currently generates a matrix from:
+Każdy przebieg używa jednej kompletnej konfiguracji z iloczynu `writeConcern`, `readConcern`,
+`readPreference`, topologii, profilu sieciowego i współbieżności. Wynik zawiera osobne metryki
+`read`, `insert`, `update` oraz `overall`, dzięki czemu wpływ konfiguracji jest badany dla wszystkich
+operacji w tych samych warunkach.
 
-| Parameter | Values | Applied by | Restart needed? |
-|---|---|---|---|
-| `w` | `1`, `2`, `majority` | MongoDB driver write concern | no |
-| `j` | `false`, `true` | MongoDB driver write concern | no |
-| `storage.journal.commitIntervalMs` | `1`, `5`, `10`, `25`, `50`, `100`, `200`, `300` | Docker `mongod` startup configuration (`--journalCommitInterval`) | yes |
+Eksperyment `freshness` jest uruchamiany osobno. Jeden writer nadaje każdemu rejestrowi 
+rosnące wersje, a równolegli czytelnicy mierzą widoczną wersję. Każdy zapis i odczyt tworzy surowy
+rekord historii zawierający: identyfikator operacji, typ operacji, klienta, klucz, czas rozpoczęcia
+i zakończenia mierzony monotonicznym zegarem, zapisaną albo odczytaną wersję, wynik i klasę błędu.
 
-The scheduler groups runs by `commitIntervalMs`, so MongoDB is restarted only when the startup
-parameter changes. Inside each commit-interval group, configurations and repetitions can be
-randomized to reduce order bias.
+Benchmark nie wpisuje do historii gotowego `versionLag`. Niezależny skrypt offline rekonstruuje
+dla każdego odczytu najnowszy udany zapis tego samego klucza zakończony nie później niż rozpoczęcie
+odczytu. Odczyt jest nieaktualny wyłącznie wtedy, gdy jego `observedVersion` jest od tej wersji
+mniejsza. Zapis nakładający się czasowo na odczyt nie jest używany jako punkt odniesienia.
 
-## Benchmark methodology
 
-For every scheduled run the tool:
+## Uruchomienie
 
-1. Starts or reuses the replica set for the selected `commitIntervalMs`.
-2. Finds the current primary and connects to it directly from the host JVM.
-3. Drops and reloads the benchmark collection.
-4. Inserts `dataset.initialDocuments` large base documents.
-5. Runs a warm-up phase with the same workload mix, without recording metrics.
-6. Runs the measured phase for `experiment.durationSeconds`.
-7. Saves one JSON object per line to the configured result file.
+Wymagane są działający Docker Desktop i wolne porty 27017-27021.
 
-The default dataset/workload is:
-
-| Setting | Default |
-|---|---:|
-| Initial documents | 10,000 |
-| Approximate document size | 4 KB |
-| WiredTiger cache per data node | 0.25 GB |
-| Client threads | 4 |
-| Warm-up | 10 s |
-| Measured duration | 30 s |
-| Repetitions | 3 |
-| Reads | 50% |
-| Inserts | 30% |
-| Updates | 20% |
-
-Reads are random `_id` lookups over the preloaded base-document set. Inserts add new large
-documents. Updates modify random preloaded base documents.
-
-The local Docker Desktop setup runs five MongoDB processes. To avoid out-of-memory kills during
-the PoC, data-bearing nodes use `--wiredTigerCacheSizeGB` from the `mongo.wiredTigerCacheSizeGB`
-setting. If Docker Desktop has more memory assigned, this value and `dataset.initialDocuments` can
-be increased for longer final experiments.
-
-## Metrics
-
-The result JSON contains separate metric blocks for:
-
-- `overall`
-- `read`
-- `insert`
-- `update`
-
-Each block contains operation count, successful operations, errors, throughput, mean latency,
-standard deviation, min, p50, p90, p95, p99, p99.9, and max latency.
-
-## Run
-
-Make sure Docker is running, then execute:
+Smoke test sprawdzający całą ścieżkę na małej macierzy (jego wyników nie należy mieszać z pomiarami):
 
 ```bash
-./gradlew run --args="--config=config/poc-experiment.yml"
+./gradlew run --args="--config=config/smoke-experiment.yml"
 ```
 
-Useful overrides:
+Główny eksperyment wydajnościowy:
 
 ```bash
-./gradlew run --args="--config=config/poc-experiment.yml --duration=60 --warmup=10 --threads=8 --output=results/long-run.jsonl"
+./gradlew run --args="--config=config/performance-experiment.yml"
 ```
 
-For a quick smoke test, temporarily reduce `dataset.initialDocuments`, `experiment.repetitions`,
-and the number of parameter values in `config/poc-parameters.yml`.
+Osobny eksperyment świeżości/spójności:
+
+```bash
+./gradlew run --args="--config=config/consistency-experiment.yml"
+```
+
+Eksperymenty uzupełniające (`maxStalenessSeconds`, Flow Control i chaining):
+
+```bash
+./gradlew run --args="--config=config/supplementary-experiment.yml"
+```
+
+Każde uruchomienie tworzy nowy katalog `results/.../experiment-YYYYMMDD-HHMMSS`. `summary.jsonl` zawiera metryki i pełne parametry przebiegu,
+a pliki `*-history.jsonl` z eksperymentu spójności zawierają kompletną historię zapisów i odczytów.
+
+Analiza historii świeżości:
+
+```bash
+python3 analysis/analyze_freshness.py results/consistency/experiment-YYYYMMDD-HHMMSS
+```
+
+Skrypt zwraca kod `0` tylko wtedy, gdy historia spełnia kryterium odbioru: opóźnione
+`secondary + local` zawiera co najmniej jeden nieaktualny odczyt, odpowiadający scenariusz
+`primary + local` nie zawiera żadnego, a wersje zapisów są ściśle rosnące. Dodatkowo historia nie
+może zawierać błędów operacji, powtórzonych identyfikatorów ani niepoprawnych przedziałów czasu.
+Brak wymaganego scenariusza również oznacza niepowodzenie, dzięki czemu nie da się omyłkowo uznać
+niepełnego eksperymentu za poprawny.
+Do samego przeglądania częściowych wyników służy opcja `--report-only`.
+
+## Trzy zestawy parametrów
+
+1. `performance-parameters.yml` - pełna macierz wydajności dla read/insert/update.
+2. `consistency-parameters.yml` - osobna macierz dla wersjonowanych rejestrów i świeżości.
+3. `supplementary-parameters.yml` - pełna macierz główna rozszerzona o listy
+   `maxStalenessSeconds`, `enableFlowControl`, `flowControlTargetLagSeconds` i `chainingAllowed`.
